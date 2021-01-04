@@ -58,17 +58,22 @@ size_t HistogramBucketMapper::IndexForValue(const uint64_t value) const {
 }
 
 namespace {
-  const HistogramBucketMapper bucketMapper;
+
+const HistogramBucketMapper& BucketMapper() {
+  static const auto* const kBucketMapper = new HistogramBucketMapper{};
+  return *kBucketMapper;
+}
+
 }
 
 HistogramStat::HistogramStat()
-  : num_buckets_(bucketMapper.BucketCount()) {
+  : num_buckets_(BucketMapper().BucketCount()) {
   assert(num_buckets_ == sizeof(buckets_) / sizeof(*buckets_));
   Clear();
 }
 
 void HistogramStat::Clear() {
-  min_.store(bucketMapper.LastValue(), std::memory_order_relaxed);
+  min_.store(BucketMapper().LastValue(), std::memory_order_relaxed);
   max_.store(0, std::memory_order_relaxed);
   num_.store(0, std::memory_order_relaxed);
   sum_.store(0, std::memory_order_relaxed);
@@ -84,7 +89,7 @@ void HistogramStat::Add(uint64_t value) {
   // This function is designed to be lock free, as it's in the critical path
   // of any operation. Each individual value is atomic and the order of updates
   // by concurrent threads is tolerable.
-  const size_t index = bucketMapper.IndexForValue(value);
+  const size_t index = BucketMapper().IndexForValue(value);
   assert(index < num_buckets_);
   buckets_[index].store(buckets_[index].load(std::memory_order_relaxed) + 1,
                         std::memory_order_relaxed);
@@ -135,6 +140,7 @@ double HistogramStat::Median() const {
 }
 
 double HistogramStat::Percentile(double p) const {
+  const HistogramBucketMapper& bucket_mapper = BucketMapper();
   double threshold = num() * (p / 100.0);
   uint64_t cumulative_sum = 0;
   for (unsigned int b = 0; b < num_buckets_; b++) {
@@ -142,8 +148,8 @@ double HistogramStat::Percentile(double p) const {
     cumulative_sum += bucket_value;
     if (cumulative_sum >= threshold) {
       // Scale linearly within this bucket
-      uint64_t left_point = (b == 0) ? 0 : bucketMapper.BucketLimit(b-1);
-      uint64_t right_point = bucketMapper.BucketLimit(b);
+      uint64_t left_point = (b == 0) ? 0 : bucket_mapper.BucketLimit(b-1);
+      uint64_t right_point = bucket_mapper.BucketLimit(b);
       uint64_t left_sum = cumulative_sum - bucket_value;
       uint64_t right_sum = cumulative_sum;
       double pos = 0;
@@ -180,6 +186,7 @@ double HistogramStat::StandardDeviation() const {
   return std::sqrt(variance);
 }
 std::string HistogramStat::ToString() const {
+  const HistogramBucketMapper& bucket_mapper = BucketMapper();
   uint64_t cur_num = num();
   std::string r;
   char buf[1650];
@@ -208,8 +215,8 @@ std::string HistogramStat::ToString() const {
     snprintf(buf, sizeof(buf),
              "%c %7" PRIu64 ", %7" PRIu64 " ] %8" PRIu64 " %7.3f%% %7.3f%% ",
              (b == 0) ? '[' : '(',
-             (b == 0) ? 0 : bucketMapper.BucketLimit(b-1),  // left
-              bucketMapper.BucketLimit(b),  // right
+             (b == 0) ? 0 : bucket_mapper.BucketLimit(b-1),  // left
+              bucket_mapper.BucketLimit(b),  // right
               bucket_value,                   // count
              (mult * bucket_value),           // percentage
              (mult * cumulative_sum));       // cumulative percentage
@@ -285,3 +292,4 @@ void HistogramImpl::Data(HistogramData * const data) const {
 }
 
 }  // namespace ROCKSDB_NAMESPACE
+
