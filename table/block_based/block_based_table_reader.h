@@ -524,8 +524,8 @@ struct BlockBasedTable::Rep {
         level(_level),
         immortal_table(_immortal_table) {}
   ~Rep() { status.PermitUncheckedError(); }
-  const ImmutableCFOptions& ioptions;
-  const EnvOptions& env_options;
+  const ImmutableCFOptions ioptions;
+  const EnvOptions env_options;
   const BlockBasedTableOptions table_options;
   const FilterPolicy* const filter_policy;
   const InternalKeyComparator& internal_comparator;
