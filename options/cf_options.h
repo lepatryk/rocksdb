@@ -15,6 +15,25 @@
 
 namespace ROCKSDB_NAMESPACE {
 
+struct CopyInstrumentation {
+  CopyInstrumentation() : copies(new int(0)), is_copy(false) {}
+  ~CopyInstrumentation() {
+    if (is_copy) {
+      (*copies)--;
+    } else {
+      assert(*copies == 0);
+    }
+  }
+  CopyInstrumentation(const CopyInstrumentation &other) : copies(new int(0)), is_copy(false) {}
+  CopyInstrumentation(const CopyInstrumentation &other, bool is_copy) : copies(other.copies), is_copy(true) {
+    // Crash whenever the original object is destroyed before all copies.
+    assert(is_copy);
+    (*copies)++;
+  }
+  std::shared_ptr<int> copies;
+  bool is_copy;
+};
+
 // ImmutableCFOptions is a data struct used by RocksDB internal. It contains a
 // subset of Options that should not be changed during the entire lifetime
 // of DB. Raw pointers defined in this struct do not have ownership to the data
@@ -25,6 +44,8 @@ struct ImmutableCFOptions {
 
   ImmutableCFOptions(const ImmutableDBOptions& db_options,
                      const ColumnFamilyOptions& cf_options);
+
+  CopyInstrumentation copy_instrumentation;
 
   CompactionStyle compaction_style;
 

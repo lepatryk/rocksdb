@@ -522,10 +522,14 @@ struct BlockBasedTable::Rep {
         global_seqno(kDisableGlobalSequenceNumber),
         file_size(_file_size),
         level(_level),
-        immortal_table(_immortal_table) {}
+        immortal_table(_immortal_table) {
+          ioptions.copy_instrumentation.copies = _ioptions.copy_instrumentation.copies;
+          (*ioptions.copy_instrumentation.copies)++;
+          ioptions.copy_instrumentation.is_copy = true;
+        }
   ~Rep() { status.PermitUncheckedError(); }
-  const ImmutableCFOptions& ioptions;
-  const EnvOptions& env_options;
+  ImmutableCFOptions ioptions;
+  const EnvOptions env_options;
   const BlockBasedTableOptions table_options;
   const FilterPolicy* const filter_policy;
   const InternalKeyComparator& internal_comparator;
