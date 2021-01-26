@@ -21,12 +21,12 @@ struct CopyInstrumentation {
     if (is_copy) {
       (*copies)--;
     } else {
+      // Crash whenever the original object is destroyed before all copies.
       assert(*copies == 0);
     }
   }
   CopyInstrumentation(const CopyInstrumentation &other) : copies(new int(0)), is_copy(false) {}
   CopyInstrumentation(const CopyInstrumentation &other, bool is_copy) : copies(other.copies), is_copy(true) {
-    // Crash whenever the original object is destroyed before all copies.
     assert(is_copy);
     (*copies)++;
   }
