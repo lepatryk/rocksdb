@@ -16,7 +16,7 @@
 namespace ROCKSDB_NAMESPACE {
 struct CopyInstrumentation {
   CopyInstrumentation() {}
-  explicit CopyInstrumentation(const CopyInstrumentation &other) {}
+  explicit CopyInstrumentation(const CopyInstrumentation&) {}
   ~CopyInstrumentation() {
     if (is_copy) {
       (*copies)--;
