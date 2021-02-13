@@ -14,24 +14,24 @@
 #include "util/compression.h"
 
 namespace ROCKSDB_NAMESPACE {
-
 struct CopyInstrumentation {
-  CopyInstrumentation() : copies(new int(0)), is_copy(false) {}
+  CopyInstrumentation() {}
+  explicit CopyInstrumentation(const CopyInstrumentation &other) {}
   ~CopyInstrumentation() {
     if (is_copy) {
       (*copies)--;
     } else {
-      // Crash whenever the original object is destroyed before all copies.
-      assert(*copies == 0);
+      // TODO: print stacktrace
+      if (*copies != 0) printf("use after free detected\n");
     }
   }
-  CopyInstrumentation(const CopyInstrumentation &other) : copies(new int(0)), is_copy(false) {}
-  CopyInstrumentation(const CopyInstrumentation &other, bool is_copy) : copies(other.copies), is_copy(true) {
-    assert(is_copy);
+  void AnnotateAsCopyOf(const CopyInstrumentation& other) const {
+    is_copy = true;
+    copies = other.copies;
     (*copies)++;
   }
-  std::shared_ptr<int> copies;
-  bool is_copy;
+  mutable std::shared_ptr<int> copies = std::make_shared<int>(0);
+  mutable bool is_copy = false;
 };
 
 // ImmutableCFOptions is a data struct used by RocksDB internal. It contains a
@@ -44,6 +44,10 @@ struct ImmutableCFOptions {
 
   ImmutableCFOptions(const ImmutableDBOptions& db_options,
                      const ColumnFamilyOptions& cf_options);
+  
+  void AnnotateAsCopyOf(const ImmutableCFOptions& other) const {
+    copy_instrumentation.AnnotateAsCopyOf(other.copy_instrumentation);
+  }
 
   CopyInstrumentation copy_instrumentation;
 
