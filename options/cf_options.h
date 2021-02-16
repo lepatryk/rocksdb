@@ -10,6 +10,7 @@
 
 #include "db/dbformat.h"
 #include "options/db_options.h"
+#include "port/stack_trace.h"
 #include "rocksdb/options.h"
 #include "util/compression.h"
 
@@ -21,8 +22,10 @@ struct CopyInstrumentation {
     if (is_copy) {
       (*copies)--;
     } else {
-      // TODO: print stacktrace
-      if (*copies != 0) printf("use after free detected\n");
+      if (*copies != 0) {
+        fprintf(stderr, "FATAL: ImmutableCFOptions destroyed before all copies.\n");
+        ROCKSDB_NAMESPACE::port::PrintStack();
+      }
     }
   }
   void AnnotateAsCopyOf(const CopyInstrumentation& other) const {
